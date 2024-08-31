@@ -1,0 +1,68 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: bark-grafana-service
+  namespace: myspace
+
+spec:
+  selector:
+    app: bark-grafana
+  ports:
+  - protocol: TCP
+    port: 8080
+    targetPort: 8080
+  type: NodePort
+
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bark-grafana
+  namespace: myspace
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bark-grafana
+  template:
+    metadata:
+      labels:
+        app: bark-grafana
+    spec:
+      containers:
+      - name: bark-grafana
+        image: python:3-alpine
+        resources:
+          limits:
+            memory: "1Gi"
+            cpu: "1000m"
+          requests:
+            memory: "500Mi"
+            cpu: "500m"
+        volumeMounts:
+          - name: bark-grafana-data
+            mountPath: /app
+
+        env:
+        - name: INIT_SCRIPT
+          value: /app/bark-grafana/init-script.sh
+        command: ["/bin/sh", "-c"]
+        args: ['while true; do if [ -e $INIT_SCRIPT ]; then echo "$INIT_SCRIPT found."; break; else echo "wait for $INIT_SCRIPT..."; sleep 5; fi; done; sh $INIT_SCRIPT;']
+      volumes:
+      - name: bark-grafana-data
+        persistentVolumeClaim:
+          claimName: bark-grafana-pvc
+
+---
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: bark-grafana-pvc
+  namespace: myspace
+spec:
+  accessModes:
+    - ReadWriteOnce
+  resources:
+    requests:
+      storage: 1Gi

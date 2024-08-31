@@ -1,0 +1,13 @@
+[Unit]
+Description=Bark Server Service
+After=network-online.target
+[Service]
+Environment="PYTHONPATH=/root/bark-grafana"
+ExecStartPre=ufw allow 3571/tcp
+ExecStartPre=ufw allow 3570/tcp
+ExecStart=/root/bark-server --addr 0.0.0.0:3571 --data /root/bark-data
+ExecStartPost=gunicorn --daemon --bind 0.0.0.0:3570 bark-grafana:app
+Restart=always
+RestartSec=3
+[Install]
+WantedBy=default.target
