@@ -1,6 +1,9 @@
 from flask import Flask, request, jsonify
 from urllib.parse import quote
 
+from dateutil import parser
+import pytz
+
 import hashlib
 import requests
 import json
@@ -20,16 +23,27 @@ cache = TTLCache(maxsize=100000, ttl=10)
 
 app = Flask(__name__)
 
+def convert_tz(dt_str):
+    dt = parser.parse(dt_str)
+    dt_sh = dt.astimezone(pytz.timezone('Asia/Shanghai'))
+    return dt_sh.strftime('%Y-%m-%d %H:%M:%S%Z')
+
 
 def extract_title_body(alert):
     title = f'[{alert["status"].upper()}] {alert["labels"]["alertname"]}'
-    body = f'starts at: {alert["startsAt"]}, ends at: {alert["endsAt"]}'
+    start_time = convert_tz(alert["startsAt"])
+    end_time = convert_tz(alert["endsAt"])
+
+    if alert["status"].lower() == "resolved":
+        body = f'starts at: {start_time}, ends at: {end_time}'
+    else:
+        body = f'starts at: {start_time}'
+
     if "summary" in alert["annotations"]:
         title = f'{title}: {alert["annotations"]["summary"]}'
     if "description" in alert["annotations"]:
         body = f'{alert["annotations"]["description"]} {body}'
     return title, body
-
 
 def call_target(target_host, token, title, body):
     target_url = f"http://{target_host}/{token}/{quote(title)}/{quote(body)}"
